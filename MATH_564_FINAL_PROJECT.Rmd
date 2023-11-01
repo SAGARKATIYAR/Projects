@@ -1,0 +1,177 @@
+---
+title: "Math_564__FINAL_PROJECT"
+output:
+  pdf_document: default
+  html_document: default
+  fig_width: 200
+  fig_height: 200
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Read the data and create the transaction month column and convert variables to factors 
+```{r}
+library(readxl)
+d <- read_excel("C:\\Users\\sagar\\OneDrive\\Documents\\STAT425FP\\Real_estate_valuation_data_set.xlsx")
+d$`X7 transaction month` = (round((d$`X1 transaction date`-floor(d$`X1 transaction date`))*12, digits = 0)+1)
+d$`X7 transaction month`= as.factor(d$`X7 transaction month`)
+d
+```
+##Column names of data for section 2 
+```{r}
+names(d)
+```
+
+##Structure of the data for section 2 
+```{r}
+str(d)
+```
+
+
+##Summary Statistics on the different variables for Section 2
+
+```{r}
+summary(d)
+```
+```{r}
+pairs(~`X1 transaction date`+`X2 house age`+`X3 distance to the nearest MRT station`+`X4 number of convenience stores`+`X5 latitude`+`X6 longitude`+`X7 transaction month`+`Y house price of unit area`, data = d)
+```
+
+
+##Plotting different variables against the house prices for Section 2 
+```{r}
+par(mfrow=c(3,3))
+plot(d$`X1 transaction date`, d$`Y house price of unit area`)
+plot(d$`X2 house age`,d$`Y house price of unit area`)
+plot(d$`X3 distance to the nearest MRT station`,d$`Y house price of unit area`)
+plot(d$`X4 number of convenience stores`,d$`Y house price of unit area`)
+plot(d$`X5 latitude`, d$`Y house price of unit area`)
+plot(d$`X6 longitude`,d$`Y house price of unit area`)
+plot(d$`X7 transaction month`,d$`Y house price of unit area`)
+
+```
+```{r}
+library(ggplot2)
+library(GGally)
+
+```
+
+```{r}
+ggpairs(d, columns=c(2:9)) +
+ggtitle("Data Set Plot 2")
+```
+
+
+#train test split of the data 
+```{r}
+train= d[1:290,]  
+test= d[291:414,]
+```
+
+#MLR using backwards selection in Section 3 
+```{r}
+m = lm(`Y house price of unit area`~`X1 transaction date`+`X2 house age`+`X3 distance to the nearest MRT station`+`X4 number of convenience stores`+`X5 latitude`+`X6 longitude`+`X7 transaction month`, data = train)
+```
+
+```{r}
+summary(m)
+```
+
+```{r}
+bm = step(m,direction="backward")
+```
+
+```{r}
+summary(bm)
+```
+
+##Checking for high leverage points 
+```{r}
+library(faraway)
+n = 291; p = 5;
+lev = influence(bm)$hat
+lev[lev>2*p/n]
+```
+```{r}
+halfnorm(lev, 6, labs = row.names(train), ylab = "lev")
+```
+```{r}
+jack=rstudent(bm); 
+qt(.05/(2*n), 285)
+sort(abs(jack), decreasing=TRUE)[1:6]
+```
+```{r}
+cook = cooks.distance(bm)
+max(cook)
+halfnorm(cook, labs=row.names(train), ylab="Cook's distances")
+```
+
+```{r}
+t1 = train[row.names(train) != 271,]
+m2 = lm(`Y house price of unit area`~`X1 transaction date`+`X2 house age`+`X3 distance to the nearest MRT station`+`X4 number of convenience stores`+`X5 latitude`+`X6 longitude`+`X7 transaction month`, data= t1)
+bm2 = step(m2,direction="backward")
+summary(bm2)
+```
+
+## Running test for homoedascity
+
+```{r}
+library(lmtest)
+bptest(bm2)
+```
+# Running test for normality 
+
+```{r}
+shapiro.test(residuals(bm2))
+```
+#Running tests for linearity 
+
+```{r}
+r.y2 = update(bm2, ~. - `X2 house age`)$res;
+r.x2 = lm(`X2 house age` ~., data=t1[,-1])$res;
+tmp1=lm(r.y2 ~ r.x2); summary(tmp1)
+```
+
+```{r}
+r.y3 = update(bm2, ~. - `X3 distance to the nearest MRT station`)$res;
+r.x3 = lm(`X3 distance to the nearest MRT station` ~., data=t1[,-1])$res;
+tmp2=lm(r.y3 ~ r.x3); summary(tmp2)
+```
+
+```{r}
+r.y4 = update(bm2, ~. - `X4 number of convenience stores`)$res;
+r.x4 = lm(`X4 number of convenience stores` ~., data=t1[,-1])$res;
+tmp3=lm(r.y4 ~ r.x4); summary(tmp3)
+```
+
+```{r}
+r.y4 = update(bm2, ~. - `X5 latitude`)$res;
+r.x4 = lm(`X5 latitude` ~., data=t1[,-1])$res;
+tmp4=lm(r.y4 ~ r.x4); summary(tmp4)
+```
+
+#Calculating testing error
+```{r}
+library(Metrics)
+test1 = subset(test, select = -`Y house price of unit area`)
+p = predict(bm2, test1)
+data = data.frame(pred = p, actual = test$`Y house price of unit area`)
+mean((data$actual - data$pred)^2)
+rmse(data$pred, data$actual)
+```
+
+##Section 3.3 MARS 
+```{r}
+library(earth)
+m3 = earth(`Y house price of unit area`~`X2 house age`+`X3 distance to the nearest MRT station`+`X4 number of convenience stores`+`X5 latitude`, data= t1)
+summary(m3)
+```
+
+##Prediction Error for MARS
+```{r}
+p1 = predict(m3, test1)
+rmse(p1, test$`Y house price of unit area`)
+```
+
