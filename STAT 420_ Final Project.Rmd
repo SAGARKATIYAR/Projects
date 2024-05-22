@@ -1,0 +1,320 @@
+---
+title: 'STAT 420: Final Project Proposal'
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+---
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
+options(scipen = 1, digits = 4, width = 80)
+```
+
+### Bhagya Devnani - bhagyad2
+### Sagar Katiyar - sagarsk2
+
+# Extent of Utility of Fly Ash in Concrete
+
+## Introduction
+
+In 2017, in the United States, 268 million tons of waste was generated. 52.1 percent of them were landfilled, 25.1 percent recycled, 10.1 percent composted, and the rest of 12.7 percent were burned for energy recovery. The residues of Waste-To-Energy (WTE) incineration process are primarily landfilled, which makes the current model unsustainable. Furthermore, these residues contain heavy elements, i.e., Pb, Hg, Cd and salts- primarily chlorides which can result in leaching of heavy metals, thereby contaminating the groundwater below the landfills.
+
+A particular byproduct from WTE plants is Fly Ash. Researchers have found that the typical chemical composition of fly ash is suitable for use as Supplementary Cementitious Materials (SCMs). This indicates that cement can be partially replaced with fly ash, when mixed with water and coarse and fine aggregate to form concrete, while still retaining most of its compressive strength. 
+
+Concrete, itself contributes around 8% to the world’s carbon dioxide emissions. So, by partially replacing cement with fly ash, we could potentially make concrete a more eco-friendly material and at the same time, alleviate the unsustainable model of energy production at WTE plants by dumping its by-products into the walls and slabs of buildings, bridges, pavements rather than into landfills.
+
+## Aim
+
+The aim of this project is to determine if there is a relationship (and if so, what kind) between the compressive strength of concrete and the % partial replacement of its cement with fly ash. In theory, the compressive strength and % partial replacement should be inversely related, i.e. as you increase the amount of fly ash in the sample, the strength decreases.
+
+There will be a % partial replacement beyond which the compressive strength is too weak and this will be considered the extent of utility of fly ash in concrete. At each % replacement (x-axis), we will apply the prediction interval for a given confidence level to determine the lower bound and upper bound of strength. 
+In its lowest of utility, lightweight concrete floor topping generally has a compressive strength of 2,500 psi or 17.2 MPa. So, if the lower bound is below 17.2 MPa, the given sample is not fit for use in any type of construction.
+
+Finally, We will also test the cumulative heat of hydration released and the water-binder ratio as predictors of the strength. Both of these predictors are linearly related to cement with no replacement. However, we may see a deviation from this linearity in partial replacement because the chemical composition of fly ash may introduce reactions with water that are undesirable (or desirable!)  
+
+## Dataset
+
+The dataset has been provided by the Garg Research Group from the Civil and Environmental Engineering department at the University of Illinois, Urbana-Champaign. Experiments to determine heat of hydration and compressive strength were performed by Vikram Kumar and Bhagya Devnani. 
+ 
+The fly ash was supplied by Olmsted County WTE facility in Rochester, MN in weekly batches. For this reason, our categorical predictor will be the samples labeled by week they were supplied. Additional features of the supply are also noted:
+
+1) Week 1 Fly Ash
+2) Week 2 Fly Ash
+3) Week 3 Fly Ash
+4) Week 4 Fly Ash
+5) Week 5 Fly Ash
+6) Bottom Ash with Lime 
+7) Bottom Ash without Lime
+8) Baghouse Return Residue
+
+**Numerical Predictors are the following:** 
+
+Partial Replacement: 10%, 20%, 30%, 40%
+
+w/b Ratio: 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9
+
+**Observed Values:**
+
+Heat of Hydration over a 72 hour period
+Compressive Strength
+
+**Total number of observations:**
+
+The trial for each sample was conducted twice. So, the total number of observations are:
+
+(8 samples)(4 replacement %s)(7 w/b ratios)(2 trials) = 448 observations
+
+Additionally, for every w/b ratio, 2 control samples (cement with no replacement) were observed. 14 reference observations are available.
+
+Total # of Observations = 462 
+
+## Methods
+
+Cleaning Up of data will be necessary. 
+
+For w/b = 0.5, the following .xlsx files have been provided:
+(4) heat of hydration experiments at each partial replacement for all 8 ash samples
+(1) compressive strength data at 10% replacement (data for 20%, 30%, 40%)
+
+For the heat of hydration experiments, the data plots the heat released (y-axis) against time (axis). While in theory, the peak rate of hydration directly correlates to how fast or slow the curing time will be for the given concrete sample, we will ignore the observations of setting time for this project.
+
+We shall then plot the replacement against the peaks and attempt to perform regression on them to derive insights into the data. We can also attempt to do feature and response transformations to get a better fit. 
+
+All data was cleaned and combined into one csv file called "cement.csv".
+
+The variable names are explained as follows:
+
+sample - Categorical Predictor of Weekly Supply of Fly Ash 
+
+replace - partial replacement of cement with ash (%)
+
+wb - water-to-binder ratio 
+
+heat - Cumulative Heat Released per gram in a 72 hour period (J/g)
+
+strength - Compressive Strength of Sample (MPa)
+
+trial - trial number
+
+```{r}
+cement = read.csv("cement.csv")
+```
+
+## Analysis
+
+## Finding the maximum partial replacement 
+
+We will assume a negative linear relationship between strength and % partial replacement and fit a linear model as follows: 
+
+```{r}
+replace_model = lm(strength ~ replace, data = cement)
+```
+
+We will plot the compressive strength against the partial replacement of cement and verify our expectations that the strength decreases with an increase in % partial replacement. We will also show the line of best fit of our linear model:
+
+```{r}
+plot(strength~replace, data = cement, 
+     pch = 20, 
+     col = "magenta",
+     main = "Compressive Strength vs Partial Replacement", 
+     xlab = "Partial Replacement of Cement with Ash (%)",
+     ylab = "Compressive Strength of Sample (MPa)")
+abline(replace_model, lty = 2, lwd = 3)
+```
+```{r}
+summary(replace_model)$r.squared
+```
+
+As shown by the plot above, we meet our expectations about the relationship between strength and replacement. We have an R-squared value of 0.8493 which explains an adequate level of linearity. 
+
+Now, using prediction intervals, we will find the % partial replacement beyond which the sample is not fit for use in any type of construction.
+
+```{r}
+zerop = data.frame(replace = 0)
+tenp = data.frame(replace = 10)
+twentyp = data.frame(replace = 20)
+thirtyp = data.frame(replace = 30)
+fortyp = data.frame(replace = 40)
+
+predict(replace_model, newdata = zerop, interval = "prediction")
+predict(replace_model, newdata = tenp, interval = "prediction")
+predict(replace_model, newdata = twentyp, interval = "prediction")
+predict(replace_model, newdata = thirtyp, interval = "prediction")
+predict(replace_model, newdata = fortyp, interval = "prediction")
+```
+As shown above, the prediction intervals of strength indicate that:
+
+95% of all cement samples with no replacement will have a compressive strength between 28.12 and 36.91 MPa.
+95% of all cement samples with 10% replacement will have a compressive strength between 23.68 and 32.44 MPa.
+95% of all cement samples with 20% replacement will have a compressive strength between 19.15 and 27.98 MPa.
+95% of all cement samples with 30% replacement will have a compressive strength between 14.77 and 23.52 MPa.
+95% of all cement samples with 40% replacement will have a compressive strength between 10.31 and 19.07 MPa.
+
+Hence, partial replacement of cement with fly ash **beyond 20%** will not be fit for use in any type of construction as the lower bound of strength for these samples is below the safety limit of 17.2 MPa. 
+
+## Testing the Predictors of Strength 
+
+Fly Ash in itself can have some variation in its chemical composition, even by a week to week basis from the WTE plant. Hence, to test how good a sample 
+Generally, cumulative heat released and water-to-binder ratios are good linear predictors of compressive strength of pure cement. Let's test this when cement is mixed with some % of ash: 
+
+#TEST HEAT and WB AS PREDICTORS 
+
+#Heat
+Like we did for partial replacement above, we can do a similar exploration using the cumulative heat released as a predictor.
+
+First we can plot the cumulative heat released against strength to get a rough idea of the relationship between the 2 
+
+
+```{r}
+heat_model = lm(strength ~ heat, data = cement)
+```
+
+```{r}
+plot(strength~heat, data = cement, 
+     pch = 20, 
+     col = "magenta",
+     main = "Compressive Strength vs Cumulative Heat", 
+     xlab = "Cumulative heat released (J/g)",
+     ylab = "Compressive Strength of Sample (MPa)")
+abline(heat_model, lty = 2, lwd = 3)
+```
+
+```{r}
+summary(heat_model)$r.squared
+```
+As can be seen above, cumulative heat released appears to have a high linear relationship with compressive strength giving us an R Squared value of over 0.9. Even though the variance does appear to increase a bit for cumulative heat values greater than 450 J/g, it still follows our linear trend very well as can be seen from the graph. 
+
+
+#Water 
+We finally move on to the last variable on our list which is water to binder ratio 
+
+```{r}
+water_model = lm(strength ~ wb, data = cement)
+```
+
+
+```{r}
+plot(strength~wb, data = cement, 
+     pch = 20, 
+     col = "magenta",
+     main = "Compressive Strength vs Water to binder ratio", 
+     xlab = "Water to binder ratio",
+     ylab = "Compressive Strength of Sample (MPa)")
+abline(water_model, lty = 2, lwd = 3)
+```
+```{r}
+summary(water_model)$r.squared
+```
+There appears to be absolutely no relationship between water to binder ratio and compressive strength given the almost 0 R Squared value. This is most probably because the varying chemical composition introduced by the ash produces undesirable reactions with water, that would generally not be present in pure cement.
+
+Knowing this I think for the best model it would be better to discard water to binder ratio as a predictor and only work with partial replacement and cumulative heat as predictors for strength.
+
+Next we will try to make a composite model using these 2 predictors 
+
+#Composite model 
+
+```{r}
+comb_model = lm(strength ~ replace+heat, data = cement)
+```
+
+```{r}
+summary(comb_model)$r.squared
+```
+The combined model of partial replacement and cumulative heat gives us an r-squared value of 0.9335 which is extremely high when it comes to predictions and is the best model so far and could be used as our final model. However, it might be a good idea to explore a few other models. 
+
+#Composite log model 
+
+This model uses a log transformation of the strength variable against our two predictors. 
+
+```{r}
+lcomb_model = lm(log(strength) ~ replace+heat, data = cement)
+summary(lcomb_model)$r.squared
+```
+While the R-Squared value of 0.9238 is still quite high it is lower than our original composite model and therefore shall be discarded. 
+
+However since we the R-squared of both is quite similar we can 
+We can further use other methods to compare the 2 models. 
+
+#Adjusted R squared
+
+```{r}
+summary(comb_model)$adj.r.squared
+summary(lcomb_model)$adj.r.squared
+```
+For the adjusted R-squared model our original model is better than the log combined model the former is preferred. 
+
+#LOOCV-RMSE 
+
+```{r}
+clr = function(model){
+  sqrt(mean((resid(model)/(1-hatvalues(model)))^2))
+}
+```
+```{r}
+clr(comb_model)
+clr(lcomb_model)
+```
+When using the leave one out cross validation RMSE however, it appears that the log model is preferred over the original model since it has a lower value.
+
+This leads us to believe that both models are too close for comparison especially since there isn't an extremely big difference in both values for the models. 
+
+However, in this we have preferred to use the original composite model due to its simplicity. Though if we had significantly more amounts of data this could be changed. 
+
+
+#Backward selection with AIC 
+
+The R-squared for the original composite model is quite higher than a simpler model and we have only 2 parameters so a backward selection may not be necessary but for the sake of exploration we have chosen to do so. 
+
+```{r}
+n = length(resid(comb_model))
+step(comb_model, direction = "backward", k = log(n),trace = 0)
+back_bic = step(comb_model, direction = "backward", k = log(n),trace = 0)
+```
+And our hypothesis is proven correct since our original composite model is preferred over a simper model. 
+
+## Conclusions 
+
+1) Partial replacement of cement with fly ash **beyond 20%** will not be fit for use in any type of construction.     
+
+2) Cumulative Heat Released remains to be a good predictor of compressive strength, even for partially replaced cements. 
+
+3) The water-to-binder ratio predictor loses its ability to predict the strength of partially replaced cement. This can be associated with the fact that the varying chemical composition introduced by the ash produces undesirable reactions with water, that would generally not be present in pure cement. 
+
+Our preferred model is the original composite model that linearly fits strength against replacement and cumulative heat. 
+
+
+## Pledge 
+Both of us agree to contribute equally and delegate tasks between ourselves appropriately to ensure quality and timely completion of the project. We have also worked on labs together in the past so communication is not an issue which shall be over messenger. Tentatively we can work on Tuesdays, Thursdays and Sundays at around 7pm where we can be on a call and work together on the project.  
+
+## Appendix
+
+### Levels of Statistical Significance for Construction 
+
+Our data for % partial replacement is discrete rather than continuous. This is because it is unfeasible to test the sample for a non-integer % replacement. 
+
+However, this does not pose any issue in the field of construction. Our conclusions that beyond 20% replacement, the strength is reduced significantly is reasonable as compared to arriving at a conclusion such as 2X.XX% replacement. 
+
+This is because for a concrete foreman, the instructions for such a concrete mix would be "to pour 4 bags of cement with 1 bag of ash". Any non-integer value would complicate this process and not be reasonable from a construction feasibility standpoint.
+
+Hence, the level of statistical significance for our data can be as low as $\alpha = 0.05$ without any hesitation.
+
+### Terminology 
+
+1) Fly Ash: The residue collected at the top filter after waste is incinerated at Waste-To-Incineration plants for energy production.
+
+2) Cement: A powdery substance made with calcined lime and clay.
+
+3) Aggregrate: A broad variety of stone, gravel and sands.
+
+4) Concrete: The mixture of cement, fine aggregrate, coarse aggregrate, sand and water - a common material in construction. 
+
+5) Binder: The mixture of cement and fly ash in a given sample.
+
+6) Water-Binder (w/b) Ratio: It is the ratio of water by weight to the binder content by weight. For example, a w/b ratio of 0.5 in a 5 g sample means that the sample contains 2.5g of water and 2.5g of binder. 
+
+7) Compressive Strength of Concrete (f'c): It is the ultimate force applied to a unit area of concrete before failure occurs. Typically, it is measured in psi: pounds per square inch. Experimentally, a hydraulic press can be used to measure f'c. 
+
+8) Curing: It is the process of drying concrete under moist conditions so it sets and reaches its full compressive strength.
+
+8) Heat of Hydration: When cement is mixed with water and aggregrate, it undergoes a hydration reaction. The heat released during this chemical reaction is the heat of hydration. The cumulative heat released in this reaction is directly proportional to the compressive strength of concrete. This is usually measured in Joules per gram (J/g).
+
